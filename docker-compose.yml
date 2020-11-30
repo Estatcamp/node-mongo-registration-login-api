@@ -34,17 +34,31 @@ services:
     restart: on-failure
     environment:
       - MONGODB_URI=mongodb://root:example@mongodb-api:27017/
-    ports:
-      - "4000:4000"
+      - NODE_ENV=production
     depends_on:
       - estat-express
+    labels:
+      - "traefik.http.routers.api.rule=Host(`api.docker.localhost`)"
 
   login:
     image: estat/login
-    container_name: login-api
+    container_name: login
     restart: on-failure
-    command: npm start
-    ports:
-      - "80:8080"
+    command: ./entrypoint.sh
+    environment:
+      - VUE_APP_REDIRECT_URL=https://google.com
+      - API_URL=http://api.docker.localhost
     depends_on:
       - api
+    labels:
+      - "traefik.http.routers.login.rule=Host(`login.docker.localhost`)"
+      - "traefik.http.middlewares.login.headers.customrequestheaders.Access-Control-Allow-Origin=*.docker.localhost"
+
+  reverse-proxy:
+    image: traefik:v2.3
+    command: --api.insecure=true --providers.docker
+    ports:
+      - "80:80"
+      - "8080:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
